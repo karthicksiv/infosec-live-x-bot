@@ -1,0 +1,6 @@
+# Keys. Never commit this file.
+.env
+
+__pycache__/
+*.tmp
+.DS_Store

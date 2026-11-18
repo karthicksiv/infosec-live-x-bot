@@ -1,0 +1,71 @@
+name: Post alerts to X
+
+on:
+  schedule:
+    # Every 30 minutes, at minute 7 and minute 37.
+    # GitHub delays scheduled runs most at the start of the hour.
+    - cron: "7,37 * * * *"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "dry-run prints the posts. post sends them to X."
+        type: choice
+        options:
+          - dry-run
+          - post
+        default: dry-run
+      backfill:
+        description: "First live run only: also post this number of the newest alerts."
+        type: string
+        default: "0"
+
+permissions:
+  contents: write   # the job saves state.json to the repo
+
+# One run at a time, so that two runs never post the same alert.
+concurrency:
+  group: post-alerts
+  cancel-in-progress: false
+
+jobs:
+  post:
+    # A scheduled run does nothing until the repository variable
+    # POSTING_ENABLED is set to "true". A manual run always works.
+    if: github.event_name != 'schedule' || vars.POSTING_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Run the bot
+        env:
+          EVENT: ${{ github.event_name }}
+          MODE: ${{ inputs.mode }}
+          BACKFILL: ${{ inputs.backfill }}
+          X_API_KEY: ${{ secrets.X_API_KEY }}
+          X_API_SECRET: ${{ secrets.X_API_SECRET }}
+          X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
+          X_ACCESS_TOKEN_SECRET: ${{ secrets.X_ACCESS_TOKEN_SECRET }}
+          MAX_REPLY_CHARS: ${{ vars.MAX_REPLY_CHARS }}
+        run: |
+          args=()
+          if [ "$EVENT" = "schedule" ] || [ "$MODE" = "post" ]; then
+            args+=(--post)
+          fi
+          if [[ "$BACKFILL" =~ ^[0-9]+$ ]] && [ "$BACKFILL" -gt 0 ]; then
+            args+=(--backfill "$BACKFILL")
+          fi
+          python3 bot.py "${args[@]}"
+
+      # This step also runs after a failed run, so that posts that went out
+      # are recorded and are not posted again.
+      - name: Save the record of posted alerts
+        if: always()
+        run: |
+          if [ -n "$(git status --porcelain state.json)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add state.json
+            git commit -m "Record posted alerts"
+            git push
+          fi
