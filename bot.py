@@ -1,37 +1,32 @@
 #!/usr/bin/env python3
 """Infosec Live X bot.
 
-Reads the Infosec Live RSS feed and posts each new alert to X as a main post
-with one reply under it:
+Reads the Infosec Live RSS feed, builds one X post for each new alert, and
+sends the post to IFTTT. An IFTTT Applet then posts it to X.
 
-    Main post   severity word with the score, the title, the start of the summary
-    Reply       AFFECTED and ACTION
+    🔴 CRITICAL 9/10: <alert title>.
 
-The posts have no links. X bills a post with a link at a much higher price.
+    <start of the alert summary>
 
-The reply is longer than 280 characters, so the bot account needs X Premium.
-Without it, set MAX_REPLY_CHARS=280 and the bot splits the reply.
+9 and 10 are CRITICAL, 7 and 8 are HIGH, 4 to 6 are MEDIUM, 1 to 3 are LOW.
+The post stays within 280 characters and has no links.
 
-  python3 bot.py                      Dry run. Prints the posts. Posts nothing.
-  python3 bot.py --post               Posts the new alerts to X.
-  python3 bot.py --post --backfill 2  On the first live run, also posts the 2 newest alerts.
+  python3 bot.py                      Dry run. Prints the posts. Sends nothing.
+  python3 bot.py --post               Sends the new alerts to IFTTT.
+  python3 bot.py --post --backfill 2  On the first live run, also sends the 2 newest alerts.
 
 On the first live run the bot records the alerts that are already in the feed
-and posts none of them. Without this rule it would post 50 old alerts at once.
+and sends none of them. Without this rule it would post 50 old alerts at once.
 
 Settings come from the environment, or from a .env file next to this script.
 See .env.example. The script uses only the Python standard library.
 """
 
 import argparse
-import base64
-import hashlib
-import hmac
 import html
 import json
 import os
 import re
-import secrets
 import sys
 import time
 import unicodedata
@@ -44,15 +39,10 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 USER_AGENT = "infosec-live-x-bot/1.0"
 
-# X API prices in USD for each request (docs.x.com pricing page, read 2026-11-18).
-COST_POST = 0.015
-COST_POST_WITH_URL = 0.200
-
-# The bot stops trying an alert that X refused this many times.
+# The bot stops trying an alert that IFTTT refused this many times.
 MAX_ATTEMPTS = 3
 
-# X shows a post of this length in full in the timeline. The main post never
-# goes over it, also when the account can write longer posts.
+# The longest post that a standard X account can publish.
 MAIN_POST_CHARS = 280
 
 SIREN = "\U0001F6A8"
@@ -60,7 +50,7 @@ RED = "\U0001F534"
 ORANGE = "\U0001F7E0"
 YELLOW = "\U0001F7E1"
 GREEN = "\U0001F7E2"
-ELLIPSIS = "…"
+ELLIPSIS = "\u2026"
 
 
 # ---------------------------------------------------------------- settings
@@ -112,8 +102,8 @@ def clean(text):
 def defang(text):
     """Write domains as example[.]com so that X does not make them links.
 
-    Two reasons. An alert can name a domain that an attacker controls, and the
-    bot must not link to it. X also bills a post with a link at a higher price.
+    An alert can name a domain that an attacker controls, and the bot must not
+    link to it.
     A dotted word is a domain when one of its later parts is a real domain
     ending (tlds.txt). Version numbers and names such as Node.js do not change.
     """
@@ -348,125 +338,47 @@ def build_main_post(alert):
     return post + "\n\n" + lead if lead else post
 
 
-def build_replies(alert, limit):
-    """AFFECTED and ACTION, in as few replies as fit."""
-    blocks = []
-    if alert.affected:
-        blocks.append("AFFECTED: " + alert.affected)
-    if alert.action:
-        blocks.append("ACTION: " + alert.action)
+# ---------------------------------------------------------------- IFTTT
 
-    replies, current = [], ""
-    for block in blocks:
-        for index, piece in enumerate(pieces_of(block, limit)):
-            joiner = "\n\n" if index == 0 else " "
-            candidate = piece if not current else current + joiner + piece
-            if xlen(candidate) <= limit:
-                current = candidate
-            else:
-                replies.append(current)
-                current = piece
-    if current:
-        replies.append(current)
-    return replies
-
-
-def build_posts(alert, reply_limit):
-    """Return the main post followed by its replies."""
-    return [build_main_post(alert)] + build_replies(alert, reply_limit)
-
-
-def thread_cost(posts):
-    return sum(COST_POST_WITH_URL if URL.search(p) else COST_POST for p in posts)
-
-
-# ---------------------------------------------------------------- X API
-
-class XError(Exception):
+class PostError(Exception):
     def __init__(self, message, status=None):
         super().__init__(message)
         self.status = status   # HTTP status, or None when there was no reply
 
     def stops_the_run(self):
-        """True when the cause is not this alert: network, keys, credits, rate limit, X itself.
-
-        The two word checks are a best guess at X's error text for an app with
-        the wrong permission and for an account with no credits.
-        """
-        if self.status is None or self.status in (401, 402, 429) or self.status >= 500:
-            return True
-        text = str(self).lower()
-        return "permission" in text or "credit" in text
+        """True when the cause is not this alert: network, key, rate limit, IFTTT itself."""
+        return self.status is None or self.status in (401, 403, 429) or self.status >= 500
 
 
-def percent(value):
-    return urllib.parse.quote(str(value), safe="-._~")
+def send_to_ifttt(text, key, event, api_base):
+    """Send one post to the IFTTT Webhooks trigger. The Applet posts {{Value1}} to X.
 
-
-def oauth_header(method, url, keys, extra_params=None, nonce=None, timestamp=None):
-    """OAuth 1.0a header (HMAC-SHA1). A JSON body is not part of the signature."""
-    oauth = {
-        "oauth_consumer_key": keys["api_key"],
-        "oauth_nonce": nonce or secrets.token_hex(16),
-        "oauth_signature_method": "HMAC-SHA1",
-        "oauth_timestamp": str(timestamp or int(time.time())),
-        "oauth_token": keys["access_token"],
-        "oauth_version": "1.0",
-    }
-    signed = dict(oauth)
-    signed.update(extra_params or {})
-    param_string = "&".join(
-        "%s=%s" % (k, v) for k, v in sorted((percent(k), percent(v)) for k, v in signed.items())
-    )
-    base = "&".join([method.upper(), percent(url), percent(param_string)])
-    signing_key = percent(keys["api_secret"]) + "&" + percent(keys["access_token_secret"])
-    digest = hmac.new(signing_key.encode(), base.encode(), hashlib.sha1).digest()
-    oauth["oauth_signature"] = base64.b64encode(digest).decode()
-    return "OAuth " + ", ".join('%s="%s"' % (percent(k), percent(v)) for k, v in sorted(oauth.items()))
-
-
-def create_post(text, reply_to, keys, api_base):
-    """Create one post. Return its id."""
-    url = api_base.rstrip("/") + "/2/tweets"
-    body = {"text": text}
-    if reply_to:
-        body["reply"] = {"in_reply_to_tweet_id": reply_to}
+    IFTTT answers when it has the request and posts to X after that. This call
+    cannot tell if the post reached X. The Applet's activity log in IFTTT shows it.
+    """
+    url = "%s/trigger/%s/with/key/%s" % (
+        api_base.rstrip("/"), urllib.parse.quote(event, safe=""), urllib.parse.quote(key, safe=""))
     request = urllib.request.Request(
         url,
-        data=json.dumps(body).encode("utf-8"),
+        data=json.dumps({"value1": text}).encode("utf-8"),
         method="POST",
-        headers={
-            "Authorization": oauth_header("POST", url, keys),
-            "Content-Type": "application/json",
-            "User-Agent": USER_AGENT,
-        },
+        headers={"Content-Type": "application/json", "User-Agent": USER_AGENT},
     )
     try:
         with urllib.request.urlopen(request, timeout=30) as response:
-            data = json.load(response)
+            response.read()
     except urllib.error.HTTPError as error:
-        detail = error.read().decode("utf-8", "replace")[:500]
-        raise XError("X API returned HTTP %s: %s" % (error.code, detail), status=error.code)
+        detail = error.read().decode("utf-8", "replace")[:300]
+        raise PostError("IFTTT returned HTTP %s: %s" % (error.code, detail), status=error.code)
     except urllib.error.URLError as error:
-        raise XError("X API request failed: %s" % error.reason)
-    post_id = (data.get("data") or {}).get("id")
-    if not post_id:
-        raise XError("X API reply has no post id: %s" % json.dumps(data)[:300])
-    return post_id
+        raise PostError("IFTTT request failed: %s" % error.reason)
 
 
-def load_keys():
-    names = {
-        "api_key": "X_API_KEY",
-        "api_secret": "X_API_SECRET",
-        "access_token": "X_ACCESS_TOKEN",
-        "access_token_secret": "X_ACCESS_TOKEN_SECRET",
-    }
-    keys = {field: os.environ.get(env, "") for field, env in names.items()}
-    missing = [names[field] for field, value in keys.items() if not value]
-    if missing:
-        sys.exit("Missing settings: %s. Add them to .env (see .env.example)." % ", ".join(missing))
-    return keys
+def load_key():
+    key = os.environ.get("IFTTT_WEBHOOK_KEY", "")
+    if not key:
+        sys.exit("Missing setting: IFTTT_WEBHOOK_KEY. Add it to .env (see .env.example).")
+    return key
 
 
 # ---------------------------------------------------------------- state
@@ -489,22 +401,22 @@ def save_state(path, state):
 # ---------------------------------------------------------------- main
 
 def main():
-    parser = argparse.ArgumentParser(description="Post Infosec Live alerts to X.")
-    parser.add_argument("--post", action="store_true", help="post to X (default: dry run)")
+    parser = argparse.ArgumentParser(description="Post Infosec Live alerts to X through IFTTT.")
+    parser.add_argument("--post", action="store_true", help="send to IFTTT (default: dry run)")
     parser.add_argument("--backfill", type=int, default=0, metavar="N",
-                        help="on the first live run, post the N newest alerts")
+                        help="on the first live run, send the N newest alerts")
     parser.add_argument("--preview", type=int, default=3, metavar="N",
                         help="dry run with no state file: show the N newest alerts")
     args = parser.parse_args()
 
     load_env_file(HERE / ".env")
     feed_url = setting("FEED_URL", "https://feed.mpcvault.com/feed.xml")
-    api_base = setting("X_API_BASE", "https://api.x.com")
-    reply_limit = int(setting("MAX_REPLY_CHARS", "4000"))
+    api_base = setting("IFTTT_API_BASE", "https://maker.ifttt.com")
+    event = setting("IFTTT_EVENT", "infosec_alert")
     max_alerts = int(setting("MAX_ALERTS_PER_RUN", "3"))
     state_path = Path(setting("STATE_FILE", str(HERE / "state.json")))
 
-    keys = load_keys() if args.post else None
+    key = load_key() if args.post else None
     alerts = parse_feed(fetch_feed(feed_url))
     state = load_state(state_path)
     known = state["alerts"]
@@ -514,7 +426,7 @@ def main():
         old = alerts[: len(alerts) - keep] if keep > 0 else alerts
         if args.post:
             for alert in old:
-                known[alert.guid] = {"done": True, "ids": [], "skipped": "in feed before first run"}
+                known[alert.guid] = {"done": True, "skipped": "in feed before first run"}
             state["initialized"] = True
             save_state(state_path, state)
             print("First live run: recorded %d alerts as already in the feed." % len(old))
@@ -523,39 +435,28 @@ def main():
 
     pending = [a for a in alerts if not known.get(a.guid, {}).get("done")]
     batch = pending[:max_alerts]
-    mode = "Live run." if args.post else "Dry run. Nothing is posted."
+    mode = "Live run." if args.post else "Dry run. Nothing is sent."
     print("%s New alerts: %d. In this run: %d." % (mode, len(pending), len(batch)))
 
-    total_cost = 0.0
     failed = 0
     for alert in batch:
-        posts = build_posts(alert, reply_limit)
-        total_cost += thread_cost(posts)
+        post = build_main_post(alert)
         print("\n=== %s  [%s]" % (alert.title, alert.published))
 
         if not args.post:
-            for number, text in enumerate(posts):
-                name = "main post" if number == 0 else "reply %d" % number
-                cap = MAIN_POST_CHARS if number == 0 else reply_limit
-                print("--- %s (%d/%d)" % (name, xlen(text), cap))
-                print(text)
-            print("Cost of this alert: $%.3f" % thread_cost(posts))
+            print("--- post (%d/%d)" % (xlen(post), MAIN_POST_CHARS))
+            print(post)
             continue
 
-        record = known.setdefault(alert.guid, {"done": False, "ids": []})
+        record = known.setdefault(alert.guid, {"done": False})
         record["title"] = alert.title
         try:
-            # Continue an alert that stopped part way in an earlier run.
-            for text in posts[len(record["ids"]):]:
-                reply_to = record["ids"][-1] if record["ids"] else None
-                record["ids"].append(create_post(text, reply_to, keys, api_base))
-                save_state(state_path, state)
-                time.sleep(1)
-        except XError as error:
+            send_to_ifttt(post, key, event, api_base)
+            time.sleep(1)
+        except PostError as error:
             failed += 1
-            print("FAILED after %d of %d posts: %s" % (len(record["ids"]), len(posts), error))
+            print("FAILED: %s" % error)
             if error.stops_the_run():
-                save_state(state_path, state)
                 print("The cause is not this alert. Stopping this run.")
                 sys.exit(1)
             # The cause is this alert. Go on to the next one, so that one bad
@@ -570,9 +471,8 @@ def main():
         record["done"] = True
         record["at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
         save_state(state_path, state)
-        print("Posted %d posts. Main post id: %s" % (len(posts), record["ids"][0]))
+        print("Sent to IFTTT.")
 
-    print("\nCost of this run: $%.3f" % total_cost)
     if failed:
         sys.exit(1)   # a failed run shows as failed in GitHub Actions
 

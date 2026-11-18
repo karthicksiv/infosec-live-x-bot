@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "dry-run prints the posts. post sends them to X."
+        description: "dry-run prints the posts. post sends them to IFTTT, which posts them to X."
         type: choice
         options:
           - dry-run
@@ -42,11 +42,8 @@ jobs:
           EVENT: ${{ github.event_name }}
           MODE: ${{ inputs.mode }}
           BACKFILL: ${{ inputs.backfill }}
-          X_API_KEY: ${{ secrets.X_API_KEY }}
-          X_API_SECRET: ${{ secrets.X_API_SECRET }}
-          X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
-          X_ACCESS_TOKEN_SECRET: ${{ secrets.X_ACCESS_TOKEN_SECRET }}
-          MAX_REPLY_CHARS: ${{ vars.MAX_REPLY_CHARS }}
+          IFTTT_WEBHOOK_KEY: ${{ secrets.IFTTT_WEBHOOK_KEY }}
+          IFTTT_EVENT: ${{ vars.IFTTT_EVENT }}
         run: |
           args=()
           if [ "$EVENT" = "schedule" ] || [ "$MODE" = "post" ]; then
@@ -58,7 +55,7 @@ jobs:
           python3 bot.py "${args[@]}"
 
       # This step also runs after a failed run, so that posts that went out
-      # are recorded and are not posted again.
+      # are recorded and are not sent again.
       - name: Save the record of posted alerts
         if: always()
         run: |
