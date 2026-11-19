@@ -6,7 +6,7 @@ sends the post to IFTTT. An IFTTT Applet then posts it to X.
 
     🔴 CRITICAL 9/10: <alert title>.
 
-    <start of the alert summary>
+    <alert summary>
 
     AFFECTED: <affected versions>
 
@@ -14,8 +14,8 @@ sends the post to IFTTT. An IFTTT Applet then posts it to X.
 
 9 and 10 are CRITICAL, 7 and 8 are HIGH, 4 to 6 are MEDIUM, 1 to 3 are LOW.
 The post has no links. It is longer than 280 characters, so the X account
-needs X Premium. Without it, set MAX_POST_CHARS=280: the bot then leaves out
-AFFECTED and ACTION.
+needs X Premium. Without it, set MAX_POST_CHARS=280: the post is then the
+label, the title and the start of the summary only.
 
   python3 bot.py                      Dry run. Prints the posts. Sends nothing.
   python3 bot.py --post               Sends the new alerts to IFTTT.
@@ -48,8 +48,7 @@ USER_AGENT = "infosec-live-x-bot/1.0"
 # The bot stops trying an alert that IFTTT refused this many times.
 MAX_ATTEMPTS = 3
 
-# X shows this much of a post in the timeline. The label, the title and the
-# start of the summary stay within it, so that they show without "Show more".
+# The length of the short form of a post (see build_post).
 MAIN_POST_CHARS = 280
 
 SIREN = "\U0001F6A8"
@@ -346,18 +345,20 @@ def build_main_post(alert):
 
 
 def build_post(alert, limit):
-    """The main part, then AFFECTED and ACTION in the same post.
+    """The full alert in one post: label and title, summary, AFFECTED, ACTION.
 
-    If the full post is longer than `limit`, the post is the main part only.
-    AFFECTED and ACTION are never cut.
+    This is longer than 280 characters, so the X account needs X Premium.
+    If the full post is longer than `limit`, the post is the short form: label,
+    title and the start of the summary, within 280 characters.
     """
-    main = build_main_post(alert)
-    full = main
+    full = with_full_stop("%s: %s" % (severity_label(alert.score), alert.title))
+    if alert.summary:
+        full += "\n\n" + alert.summary
     if alert.affected:
         full += "\n\nAFFECTED: " + alert.affected
     if alert.action:
         full += "\n\nACTION: " + alert.action
-    return full if xlen(full) <= limit else main
+    return full if xlen(full) <= limit else build_main_post(alert)
 
 
 # ---------------------------------------------------------------- IFTTT

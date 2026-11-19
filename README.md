@@ -9,7 +9,7 @@ An IFTTT Applet posts it to X. The bot does not use the X API.
 ```text
 🔴 CRITICAL 9/10: <alert title>.
 
-<start of the alert summary>
+<alert summary>
 
 AFFECTED: <affected versions>
 
@@ -17,11 +17,9 @@ ACTION: <what to do>
 ```
 
 - 9 and 10 are CRITICAL, 7 and 8 are HIGH, 4 to 6 are MEDIUM, 1 to 3 are LOW.
-- The label, the title and the start of the summary stay within the first 280
-  characters. X shows that part in the timeline.
-- The full post is longer than 280 characters, so the X account needs X Premium.
+- The post is longer than 280 characters, so the X account needs X Premium.
   Without Premium, add the repository variable `MAX_POST_CHARS` with the value
-  `280`. The bot then leaves out AFFECTED and ACTION.
+  `280`. The post is then the label, the title and the start of the summary.
 - The post has no links. The bot writes domains as `example[.]com`.
 
 ## Set up IFTTT (free plan)
