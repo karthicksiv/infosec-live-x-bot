@@ -4,18 +4,11 @@
 Reads the Infosec Live RSS feed, builds one X post for each new alert, and
 sends the post to IFTTT. An IFTTT Applet then posts it to X.
 
-    🔴 CRITICAL 9/10: <alert title>.
+    🔴 CRITICAL 9/10: <one sentence that says what happened> (<CVE IDs>).
 
-    <alert summary>
-
-    AFFECTED: <affected versions>
-
-    ACTION: <what to do>
-
-9 and 10 are CRITICAL, 7 and 8 are HIGH, 4 to 6 are MEDIUM, 1 to 3 are LOW.
-The post has no links. It is longer than 280 characters, so the X account
-needs X Premium. Without it, set MAX_POST_CHARS=280: the post is then the
-label, the title and the start of the summary only.
+9 and 10 are CRITICAL, 7 and 8 are HIGH. An alert with a score below 7, or
+with no score, is not posted. The post is one line of at most 280 characters.
+It has no links, no AFFECTED line and no ACTION line.
 
   python3 bot.py                      Dry run. Prints the posts. Sends nothing.
   python3 bot.py --post               Sends the new alerts to IFTTT.
@@ -50,8 +43,8 @@ USER_AGENT = "infosec-live-x-bot/1.0"
 # The bot stops trying an alert that IFTTT refused this many times.
 MAX_ATTEMPTS = 3
 
-# The length of the short form of a post (see build_post).
-MAIN_POST_CHARS = 280
+# The longest post, as X counts it (see xlen).
+POST_CHARS = 280
 
 SIREN = "\U0001F6A8"
 RED = "\U0001F534"
@@ -152,13 +145,11 @@ def with_full_stop(text):
 # ---------------------------------------------------------------- feed
 
 class Alert:
-    def __init__(self, guid, title, score, summary, affected, action, link, published):
+    def __init__(self, guid, title, score, summary, link, published):
         self.guid = guid
         self.title = title
         self.score = score          # 1 to 10, or None
         self.summary = summary
-        self.affected = affected
-        self.action = action
         self.link = link
         self.published = published
 
@@ -191,7 +182,7 @@ def parse_feed(xml_bytes):
         if not paragraphs:
             paragraphs = [clean(description)]
 
-        summary, affected, action = [], "", ""
+        summary = []
         for para in paragraphs:
             low = para.lower()
             if not para:
@@ -200,10 +191,8 @@ def parse_feed(xml_bytes):
                 in_line = re.search(r"(\d+)\s*/\s*10", para)
                 if in_line:
                     score = int(in_line.group(1))
-            elif low.startswith("affected:"):
-                affected = para.split(":", 1)[1].strip()
-            elif low.startswith("action:"):
-                action = para.split(":", 1)[1].strip()
+            elif low.startswith(("affected:", "action:")):
+                continue   # the post does not use these lines
             elif low.startswith("http") or "share the channel" in low or low.startswith("untrusted data"):
                 continue   # source link, share line and reader notice
             else:
@@ -214,8 +203,6 @@ def parse_feed(xml_bytes):
             title=sanitize(raw_title),
             score=score if score is not None and 1 <= score <= 10 else None,
             summary=sanitize(" ".join(summary)),
-            affected=sanitize(affected),
-            action=sanitize(action),
             link=link if link.startswith("https://") else "",
             published=(item.findtext("pubDate") or "").strip(),
         ))
@@ -226,66 +213,18 @@ def parse_feed(xml_bytes):
 # ---------------------------------------------------------------- posts
 
 SENTENCE_END = re.compile(r"(?<=[.!?])\s+(?=[A-Z0-9\"'(\[])")
-CLAUSE_END = re.compile(r"(?<=[;,:])\s+")
-
-
-def pack(parts, limit):
-    """Join parts with spaces into pieces of at most `limit` length."""
-    pieces, current = [], ""
-    for part in parts:
-        candidate = part if not current else current + " " + part
-        if xlen(candidate) <= limit:
-            current = candidate
-            continue
-        if current:
-            pieces.append(current)
-        current = part
-    if current:
-        pieces.append(current)
-    return pieces
-
-
-def hard_cut(word, limit):
-    out, current = [], ""
-    for ch in word:
-        if xlen(current + ch) > limit:
-            out.append(current)
-            current = ""
-        current += ch
-    return out + [current]
-
-
-def pieces_of(text, limit):
-    """Split text into pieces that each fit in one post.
-
-    Split at sentence ends first. Split a sentence that is too long at
-    clause marks, and a clause that is too long at spaces.
-    """
-    if xlen(text) <= limit:
-        return [text]
-    pieces = []
-    for sentence in SENTENCE_END.split(text):
-        if xlen(sentence) <= limit:
-            pieces.append(sentence)
-            continue
-        clauses = []
-        for clause in CLAUSE_END.split(sentence):
-            if xlen(clause) <= limit:
-                clauses.append(clause)
-                continue
-            words = []
-            for word in clause.split(" "):
-                words.extend(hard_cut(word, limit) if xlen(word) > limit else [word])
-            clauses.extend(pack(words, limit))
-        pieces.extend(pack(clauses, limit))
-    return pieces
+CVE_ID = re.compile(r"CVE-\d{4}-\d{4,}", re.I)
+# A pair of parentheses that holds CVE IDs and nothing else.
+CVE_GROUP = re.compile(
+    r"\s*\(\s*CVE-\d{4}-\d{4,}(?:\s*(?:,|and)\s*CVE-\d{4}-\d{4,})*\s*\)", re.I)
 
 
 def severity_label(score):
-    """The first words of the main post: a color mark, a severity word and the score.
+    """The first words of the post: a color mark, a severity word and the score.
 
     9 and 10 are CRITICAL, 7 and 8 are HIGH, 4 to 6 are MEDIUM, 1 to 3 are LOW.
-    The feed publishes only scores of 8 or higher, so the last two are rare.
+    The bot posts only scores of MIN_SCORE (7) or higher, so the last two
+    appear only if MIN_SCORE is set lower.
     """
     if score is None:
         return "%s ALERT" % SIREN
@@ -300,67 +239,83 @@ def severity_label(score):
     return "%s %s %d/10" % (mark, word, score)
 
 
-def summary_lead(summary, room):
-    """Return the start of the summary that fits in `room` characters.
+def cve_ids(text):
+    """The CVE IDs in the text, in order, each one time."""
+    ids = []
+    for found in CVE_ID.findall(text):
+        if found.upper() not in ids:
+            ids.append(found.upper())
+    return ids
 
-    Whole sentences are used while they fit. If the first sentence is too
-    long, it is cut at a clause mark (; , :) and, if that leaves less than
-    half of the room used, at a word. A cut ends with an ellipsis, except a
-    cut at a semicolon, which is a complete clause and ends with a full stop.
+
+WORD = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.+/-]*")
+
+
+def names_in(text):
+    """The words of the text that are names: a letter, with a capital letter or a digit.
+
+    Examples: NGINX, Chrome, iOS, HTTP/2, worse_query2. CVE IDs do not count.
     """
-    if not summary or room < 40:
-        return ""
-    sentences = SENTENCE_END.split(summary)
-    lead = ""
-    for sentence in sentences:
-        candidate = sentence if not lead else lead + " " + sentence
-        if xlen(candidate) > room:
+    names = set()
+    for word in WORD.findall(CVE_ID.sub(" ", text)):
+        word = word.strip("_.+/-")
+        if len(word) >= 2 and re.search(r"[A-Za-z]", word) and re.search(r"[A-Z0-9]", word):
+            names.add(word.lower())
+    return names
+
+
+def shorten(text, room):
+    """Cut text at a word so that it fits in `room` characters. The cut ends with an ellipsis."""
+    cut = ""
+    for word in text.split(" "):
+        candidate = word if not cut else cut + " " + word
+        if xlen(candidate) + 2 > room:   # keep room for the ellipsis
             break
-        lead = candidate
-    if lead:
-        return lead
-
-    by_clause = CLAUSE_END.split(sentences[0])
-    by_word = sentences[0].split(" ")
-    for parts, minimum in ((by_clause, room // 2), (by_word, 1)):
-        cut = ""
-        for part in parts:
-            candidate = part if not cut else cut + " " + part
-            if xlen(candidate) + 2 > room:   # keep room for the ellipsis
-                break
-            cut = candidate
-        if xlen(cut) >= minimum:
-            if cut.endswith(";"):
-                return cut[:-1] + "."
-            return cut.rstrip(",:;") + ELLIPSIS
-    return ""
+        cut = candidate
+    return cut.rstrip(",:;") + ELLIPSIS
 
 
-def build_main_post(alert):
-    """Severity label with the score and the title, then the start of the summary."""
-    limit = MAIN_POST_CHARS
-    post = with_full_stop("%s: %s" % (severity_label(alert.score), alert.title))
-    if xlen(post) > limit:
-        post = pieces_of(post, limit)[0]
-    lead = summary_lead(alert.summary, limit - xlen(post) - 2)
-    return post + "\n\n" + lead if lead else post
+def build_post(alert):
+    """One line: the severity label, one sentence that says what happened, the CVE IDs.
 
+        🔴 CRITICAL 9/10: <sentence> (CVE-2026-0001, CVE-2026-0002).
 
-def build_post(alert, limit):
-    """The full alert in one post: label and title, summary, AFFECTED, ACTION.
+    The sentence is the first sentence of the alert summary. If the post is
+    then longer than POST_CHARS, the sentence is cut at a semicolon, where a
+    complete clause ends. If it is still too long, the sentence is the alert
+    title. The sentence is also the title when the summary sentence has none
+    of the names in the title, because then it does not say what is affected.
+    The bot copies text from the feed. It does not write text of its own.
 
-    This is longer than 280 characters, so the X account needs X Premium.
-    If the full post is longer than `limit`, the post is the short form: label,
-    title and the start of the summary, within 280 characters.
+    The CVE IDs are the IDs in the alert title. A group such as (CVE-1, CVE-2)
+    moves to the end of the post. An ID that is part of the sentence stays in
+    the sentence and is not repeated.
     """
-    full = with_full_stop("%s: %s" % (severity_label(alert.score), alert.title))
-    if alert.summary:
-        full += "\n\n" + alert.summary
-    if alert.affected:
-        full += "\n\nAFFECTED: " + alert.affected
-    if alert.action:
-        full += "\n\nACTION: " + alert.action
-    return full if xlen(full) <= limit else build_main_post(alert)
+    label = severity_label(alert.score) + ": "
+    ids = cve_ids(alert.title)
+
+    first = SENTENCE_END.split(alert.summary)[0] if alert.summary else ""
+    choices = [first]
+    while ";" in choices[-1]:
+        choices.append(choices[-1].rsplit(";", 1)[0])
+    # Fewer than 5 words is not a sentence. It is a wrong split, as in "F5 Inc."
+    choices = [text for text in choices if len(text.split()) >= 5]
+    # The sentence must name what the title names, for example the product.
+    names = names_in(alert.title)
+    choices = [text for text in choices if not names or names & names_in(text)]
+    choices.append(alert.title)
+
+    for text in choices:
+        text = CVE_GROUP.sub("", text).strip().rstrip(".!?;:,").strip()
+        in_text = cve_ids(text)
+        missing = [cve for cve in ids if cve not in in_text]
+        tail = " (%s)." % ", ".join(missing) if missing else "."
+        if text and xlen(label + text + tail) <= POST_CHARS:
+            return label + text + tail
+
+    # The title is too long. `text` and `tail` are those of the title.
+    cut = shorten(text, POST_CHARS - xlen(label + tail))
+    return label + cut + (tail if missing else "")
 
 
 # ---------------------------------------------------------------- IFTTT
@@ -441,7 +396,7 @@ def main():
     api_base = setting("IFTTT_API_BASE", "https://maker.ifttt.com")
     event = setting("IFTTT_EVENT", "infosec_alert")
     max_alerts = int(setting("MAX_ALERTS_PER_RUN", "3"))
-    post_limit = int(setting("MAX_POST_CHARS", "4000"))
+    min_score = int(setting("MIN_SCORE", "7"))
     state_path = Path(setting("STATE_FILE", str(HERE / "state.json")))
 
     key = load_key() if args.post else None
@@ -471,16 +426,25 @@ def main():
 
     failed = 0
     for alert in batch:
-        post = build_post(alert, post_limit)
+        post = build_post(alert)
         print("\n=== %s  [%s]" % (alert.title, alert.published))
 
+        too_low = alert.score is None or alert.score < min_score
+        if too_low:
+            print("Not posted: the score is below %d or there is no score." % min_score)
         if not args.post:
-            print("--- post (%d/%d)" % (xlen(post), post_limit))
-            print(post)
+            if not too_low:
+                print("--- post (%d/%d)" % (xlen(post), POST_CHARS))
+                print(post)
             continue
 
         record = known.setdefault(alert.guid, {"done": False})
         record["title"] = alert.title
+        if too_low:
+            record["done"] = True
+            record["skipped"] = "score below %d" % min_score
+            save_state(state_path, state)
+            continue
         try:
             send_to_ifttt(post, key, event, api_base)
             time.sleep(1)

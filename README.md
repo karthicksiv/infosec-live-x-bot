@@ -7,20 +7,34 @@ An IFTTT Applet posts it to X. The bot does not use the X API.
 ## What it posts
 
 ```text
-🔴 CRITICAL 9/10: <alert title>.
-
-<alert summary>
-
-AFFECTED: <affected versions>
-
-ACTION: <what to do>
+🔴 CRITICAL 9/10: <one sentence that says what happened> (<CVE IDs>).
 ```
 
-- 9 and 10 are CRITICAL, 7 and 8 are HIGH, 4 to 6 are MEDIUM, 1 to 3 are LOW.
-- The post is longer than 280 characters, so the X account needs X Premium.
-  Without Premium, add the repository variable `MAX_POST_CHARS` with the value
-  `280`. The post is then the label, the title and the start of the summary.
-- The post has no links. The bot writes domains as `example[.]com`.
+Example:
+
+```text
+🔴 CRITICAL 9/10: Two memory-safety bugs in NGINX HTTP/2 handling (a connection use-after-free and a send_window integer underflow) allow unauthenticated remote code execution (CVE-2026-123633, CVE-2026-123007).
+```
+
+- 9 and 10 are CRITICAL, 7 and 8 are HIGH. An alert with a score below 7, or
+  with no score, is not posted. To change the lowest score, add the repository
+  variable `MIN_SCORE`.
+- The post is one line of at most 280 characters. The X account does not need
+  X Premium.
+- The post has no links, no AFFECTED line and no ACTION line. The bot writes
+  domains as `example[.]com`.
+
+The bot copies the sentence from the feed. It does not write text of its own.
+
+1. The sentence is the first sentence of the alert summary.
+2. If the post is then longer than 280 characters, the sentence is cut at a
+   semicolon, where a complete clause ends.
+3. If the post is still too long, the sentence is the alert title.
+4. The sentence is also the alert title when the summary sentence has none of
+   the names in the title (for example the product name). Such a sentence
+   does not say what is affected.
+
+The CVE IDs come from the alert title and go at the end of the post.
 
 ## Set up IFTTT (free plan)
 

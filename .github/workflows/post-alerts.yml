@@ -49,7 +49,7 @@ jobs:
           RESEND: ${{ inputs.resend }}
           IFTTT_WEBHOOK_KEY: ${{ secrets.IFTTT_WEBHOOK_KEY }}
           IFTTT_EVENT: ${{ vars.IFTTT_EVENT }}
-          MAX_POST_CHARS: ${{ vars.MAX_POST_CHARS }}
+          MIN_SCORE: ${{ vars.MIN_SCORE }}
         run: |
           # Save the record of sent alerts to the repo after each check, so
           # that an alert is not sent again if a later step fails.
