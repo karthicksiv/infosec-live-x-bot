@@ -8,8 +8,14 @@ sends the post to IFTTT. An IFTTT Applet then posts it to X.
 
     <start of the alert summary>
 
+    AFFECTED: <affected versions>
+
+    ACTION: <what to do>
+
 9 and 10 are CRITICAL, 7 and 8 are HIGH, 4 to 6 are MEDIUM, 1 to 3 are LOW.
-The post stays within 280 characters and has no links.
+The post has no links. It is longer than 280 characters, so the X account
+needs X Premium. Without it, set MAX_POST_CHARS=280: the bot then leaves out
+AFFECTED and ACTION.
 
   python3 bot.py                      Dry run. Prints the posts. Sends nothing.
   python3 bot.py --post               Sends the new alerts to IFTTT.
@@ -42,7 +48,8 @@ USER_AGENT = "infosec-live-x-bot/1.0"
 # The bot stops trying an alert that IFTTT refused this many times.
 MAX_ATTEMPTS = 3
 
-# The longest post that a standard X account can publish.
+# X shows this much of a post in the timeline. The label, the title and the
+# start of the summary stay within it, so that they show without "Show more".
 MAIN_POST_CHARS = 280
 
 SIREN = "\U0001F6A8"
@@ -338,6 +345,21 @@ def build_main_post(alert):
     return post + "\n\n" + lead if lead else post
 
 
+def build_post(alert, limit):
+    """The main part, then AFFECTED and ACTION in the same post.
+
+    If the full post is longer than `limit`, the post is the main part only.
+    AFFECTED and ACTION are never cut.
+    """
+    main = build_main_post(alert)
+    full = main
+    if alert.affected:
+        full += "\n\nAFFECTED: " + alert.affected
+    if alert.action:
+        full += "\n\nACTION: " + alert.action
+    return full if xlen(full) <= limit else main
+
+
 # ---------------------------------------------------------------- IFTTT
 
 class PostError(Exception):
@@ -414,6 +436,7 @@ def main():
     api_base = setting("IFTTT_API_BASE", "https://maker.ifttt.com")
     event = setting("IFTTT_EVENT", "infosec_alert")
     max_alerts = int(setting("MAX_ALERTS_PER_RUN", "3"))
+    post_limit = int(setting("MAX_POST_CHARS", "4000"))
     state_path = Path(setting("STATE_FILE", str(HERE / "state.json")))
 
     key = load_key() if args.post else None
@@ -440,11 +463,11 @@ def main():
 
     failed = 0
     for alert in batch:
-        post = build_main_post(alert)
+        post = build_post(alert, post_limit)
         print("\n=== %s  [%s]" % (alert.title, alert.published))
 
         if not args.post:
-            print("--- post (%d/%d)" % (xlen(post), MAIN_POST_CHARS))
+            print("--- post (%d/%d)" % (xlen(post), post_limit))
             print(post)
             continue
 

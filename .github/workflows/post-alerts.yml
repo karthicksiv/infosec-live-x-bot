@@ -44,6 +44,7 @@ jobs:
           BACKFILL: ${{ inputs.backfill }}
           IFTTT_WEBHOOK_KEY: ${{ secrets.IFTTT_WEBHOOK_KEY }}
           IFTTT_EVENT: ${{ vars.IFTTT_EVENT }}
+          MAX_POST_CHARS: ${{ vars.MAX_POST_CHARS }}
         run: |
           args=()
           if [ "$EVENT" = "schedule" ] || [ "$MODE" = "post" ]; then
