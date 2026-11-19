@@ -200,7 +200,7 @@
   "LUKSO Universal Profile email-based recovery backend exploit, attacker controller key 0xa2f8Fd85366d1B4A3B13C33A48CD959F6D1Ba3a7 added to ~300 profiles, ~1.4M LYX (~50 ETH) drained, Nov 17-18 2026 (LUKSO post mortem, The Defiant, cybersixt, Telegram msg 99)": {
    "done": true,
    "title": "LUKSO email recovery backend hijacked, attacker key added to ~300 Universal Profiles",
-   "at": "2026-11-19T00:14:45Z"
+   "at": "2026-11-19T00:36:46Z"
   }
  }
 }
