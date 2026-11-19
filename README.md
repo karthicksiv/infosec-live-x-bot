@@ -44,7 +44,8 @@ The workflow is `.github/workflows/post-alerts.yml`.
    Check the post on X.
 4. To start the schedule, add the repository variable `POSTING_ENABLED` with the
    value `true` (Settings > Secrets and variables > Actions > Variables).
-   The schedule runs every 30 minutes. To stop it, delete the variable.
+   A scheduled run starts every 5 minutes and checks the feed 3 times, 2 minutes
+   apart. GitHub can start a run late. To stop the schedule, delete the variable.
 
 The first live run records the alerts that are already in the feed and sends
 none of them, unless you set a backfill number.
@@ -74,4 +75,5 @@ add the key, and run `python3 bot.py --post`.
 ## Cost
 
 The IFTTT free plan gives 1,000 credits each month. Each post uses credits.
-GitHub Actions is in the free allowance at one run every 30 minutes.
+GitHub Actions is free for this schedule only while the repo is public.
+In a private repo the same schedule costs about $247 a month.
