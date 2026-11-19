@@ -45,6 +45,10 @@ The workflow is `.github/workflows/post-alerts.yml`.
    A scheduled run starts every 5 minutes and checks the feed 3 times, 2 minutes
    apart. GitHub can start a run late. To stop the schedule, delete the variable.
 
+To send one alert again, run the workflow with mode `post` and a part of the
+alert title in `resend`, for example `LUKSO`. The run sends only the alerts
+that match.
+
 The first live run records the alerts that are already in the feed and sends
 none of them, unless you set a backfill number.
 

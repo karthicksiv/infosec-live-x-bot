@@ -20,6 +20,8 @@ label, the title and the start of the summary only.
   python3 bot.py                      Dry run. Prints the posts. Sends nothing.
   python3 bot.py --post               Sends the new alerts to IFTTT.
   python3 bot.py --post --backfill 2  On the first live run, also sends the 2 newest alerts.
+  python3 bot.py --post --resend LUKSO
+                                      Sends again the alerts with LUKSO in the title.
 
 On the first live run the bot records the alerts that are already in the feed
 and sends none of them. Without this rule it would post 50 old alerts at once.
@@ -428,6 +430,8 @@ def main():
     parser.add_argument("--post", action="store_true", help="send to IFTTT (default: dry run)")
     parser.add_argument("--backfill", type=int, default=0, metavar="N",
                         help="on the first live run, send the N newest alerts")
+    parser.add_argument("--resend", default="", metavar="TEXT",
+                        help="send again the alerts whose title contains TEXT, and nothing else")
     parser.add_argument("--preview", type=int, default=3, metavar="N",
                         help="dry run with no state file: show the N newest alerts")
     args = parser.parse_args()
@@ -458,6 +462,9 @@ def main():
             alerts = alerts[len(old):]
 
     pending = [a for a in alerts if not known.get(a.guid, {}).get("done")]
+    if args.resend:
+        # Only the named alerts, also when the record says they were sent.
+        pending = [a for a in alerts if args.resend.lower() in a.title.lower()]
     batch = pending[:max_alerts]
     mode = "Live run." if args.post else "Dry run. Nothing is sent."
     print("%s New alerts: %d. In this run: %d." % (mode, len(pending), len(batch)))

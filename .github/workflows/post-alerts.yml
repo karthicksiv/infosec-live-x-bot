@@ -18,6 +18,10 @@ on:
         description: "First live run only: also post this number of the newest alerts."
         type: string
         default: "0"
+      resend:
+        description: "Send again the alerts with this text in the title. Leave empty for a normal run."
+        type: string
+        default: ""
 
 permissions:
   contents: write   # the job saves state.json to the repo
@@ -42,6 +46,7 @@ jobs:
           EVENT: ${{ github.event_name }}
           MODE: ${{ inputs.mode }}
           BACKFILL: ${{ inputs.backfill }}
+          RESEND: ${{ inputs.resend }}
           IFTTT_WEBHOOK_KEY: ${{ secrets.IFTTT_WEBHOOK_KEY }}
           IFTTT_EVENT: ${{ vars.IFTTT_EVENT }}
           MAX_POST_CHARS: ${{ vars.MAX_POST_CHARS }}
@@ -71,6 +76,9 @@ jobs:
             fi
             if [[ "$BACKFILL" =~ ^[0-9]+$ ]] && [ "$BACKFILL" -gt 0 ]; then
               args+=(--backfill "$BACKFILL")
+            fi
+            if [ -n "$RESEND" ]; then
+              args+=(--resend "$RESEND")
             fi
             python3 bot.py "${args[@]}" || rc=$?
             save_state
