@@ -1,7 +1,7 @@
 # Infosec Live X bot: setup
 
-This bot posts each new Infosec Live alert to X. It reads the RSS feed at
-`https://feed.mpcvault.com/feed.xml`, builds the post, and sends it to IFTTT.
+This bot posts each new Infosec Live alert to X. It reads the public page of the
+Telegram channel, `https://t.me/s/infoseclive`, builds the post, and sends it to IFTTT.
 An IFTTT Applet posts it to X. The bot does not use the X API.
 
 ## What it posts
@@ -28,9 +28,9 @@ www.lookonchain.com/feeds/83263
   below 7, or with no score, is not posted. To change the lowest score, add
   the repository variable `MIN_SCORE`.
 - The headline is the alert title in capital letters.
-- The description is the summary paragraph of the feed item. The bot does not
+- The description is the summary paragraph of the alert. The bot does not
   rewrite it. The post has no AFFECTED line and no ACTION line.
-- The link is the source link of the feed item, with no `https://` in front.
+- The link is the source link of the alert, with no `https://` in front.
   IFTTT replaces a link that starts with `https://` with its own `ift.tt`
   short link. X makes a link from the address alone and shows a preview of
   the page.
@@ -59,7 +59,7 @@ The workflow is `.github/workflows/post-alerts.yml`.
 4. To start the bot, add the repository variable `POSTING_ENABLED` with the
    value `true` (Settings > Secrets and variables > Actions > Variables). Then
    start the workflow by hand with mode `watch`.
-   A watch run checks the feed 3 times, 2 minutes apart, and then starts the
+   A watch run checks the channel 3 times, 2 minutes apart, and then starts the
    next watch run. Thus a new run starts about every 5 minutes.
 5. To stop the bot, delete the variable `POSTING_ENABLED`. The next run then
    does nothing and starts no other run. To stop it at once, also cancel the
@@ -75,7 +75,7 @@ To send one alert again, run the workflow with mode `post` and a part of the
 alert title in `resend`, for example `LUKSO`. The run sends only the alerts
 that match.
 
-The first live run records the alerts that are already in the feed and sends
+The first live run records the alerts that are already on the channel and sends
 none of them, unless you set a backfill number.
 
 The workflow saves `state.json` to the repo after each run. This file is the

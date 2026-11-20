@@ -1,18 +1,20 @@
 #!/usr/bin/env python3
 """Infosec Live X bot.
 
-Reads the Infosec Live RSS feed, builds one X post for each new alert, and
-sends the post to IFTTT. An IFTTT Applet then posts it to X.
+Reads the public page of the Infosec Live Telegram channel, builds one X post
+for each new alert, and sends the post to IFTTT. An IFTTT Applet then posts it
+to X. The channel has an alert as soon as it is published. The RSS feed has
+the same alert later, sometimes hours later, so the bot does not read it.
 
     🚨 CRITICAL 9/10: <ALERT TITLE IN CAPITAL LETTERS>
 
-    <description from the feed>
+    <description from the alert>
 
     <source link>
 
 9 and 10 are CRITICAL (🚨), 7 and 8 are HIGH (🟠). An alert with a score below
 7, or with no score, is not posted. The description is the summary paragraph
-of the feed item, with no AFFECTED line and no ACTION line. The post is longer
+of the alert, with no AFFECTED line and no ACTION line. The post is longer
 than 280 characters, so the X account needs X Premium.
 
   python3 bot.py                      Dry run. Prints the posts. Sends nothing.
@@ -21,8 +23,8 @@ than 280 characters, so the X account needs X Premium.
   python3 bot.py --post --resend LUKSO
                                       Sends again the alerts with LUKSO in the title.
 
-On the first live run the bot records the alerts that are already in the feed
-and sends none of them. Without this rule it would post 50 old alerts at once.
+On the first live run the bot records the alerts that are already on the page
+and sends none of them. Without this rule it would post 20 old alerts at once.
 
 Settings come from the environment, or from a .env file next to this script.
 See .env.example. The script uses only the Python standard library.
@@ -39,7 +41,6 @@ import unicodedata
 import urllib.error
 import urllib.parse
 import urllib.request
-import xml.etree.ElementTree as ET
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -49,7 +50,7 @@ USER_AGENT = "infosec-live-x-bot/1.0"
 MAX_ATTEMPTS = 3
 
 # The longest post, as X counts it (see xlen). X Premium allows more. This
-# limit keeps a broken feed item from making a very long post.
+# limit keeps a broken alert from making a very long post.
 POST_CHARS = 4000
 
 SIREN = "\U0001F6A8"
@@ -99,7 +100,7 @@ TLDS = load_tlds()
 
 
 def clean(text):
-    """HTML to plain text. Removes the emoji that the feed adds; the bot adds its own."""
+    """HTML to plain text. Removes the emoji that the channel adds; the bot adds its own."""
     text = html.unescape(TAG.sub("", text))
     text = EMOJI.sub("", text)
     return re.sub(r"\s+", " ", text).strip()
@@ -124,7 +125,7 @@ def defang(text):
 
 
 def sanitize(text):
-    """Make feed text safe to post: no links, no @mentions, no hashtags."""
+    """Make alert text safe to post: no links, no @mentions, no hashtags."""
     text = defang(text)
     text = MENTION.sub("", text)   # X rule: no unsolicited @mentions
     text = HASHTAG.sub("", text)
@@ -147,7 +148,7 @@ def with_full_stop(text):
     return text if text.endswith((".", "!", "?")) else text + "."
 
 
-# ---------------------------------------------------------------- feed
+# ---------------------------------------------------------------- alerts
 
 class Alert:
     def __init__(self, guid, title, score, summary, link, published):
@@ -159,59 +160,62 @@ class Alert:
         self.published = published
 
 
-def fetch_feed(url):
+def fetch(url):
     request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
     with urllib.request.urlopen(request, timeout=30) as response:
         return response.read()
 
 
-def parse_feed(xml_bytes):
-    """Return the alerts in the feed, oldest first."""
-    root = ET.fromstring(xml_bytes)
+POST = re.compile(r'data-post="[^"/]+/(\d+)"')
+POST_TEXT = re.compile(r'<div class="[^"]*\bjs-message_text\b[^"]*"[^>]*>(.*?)</div>', re.S)
+POST_TIME = re.compile(r'<time[^>]*\bdatetime="([^"]+)"')
+HREF = re.compile(r'href="(https://[^"]+)"')
+
+
+def parse_channel(page_bytes):
+    """Return the alerts on the public page of the Telegram channel, oldest first.
+
+    The page shows the 20 newest posts. In a post, the first line is the
+    title. The next lines are the summary, the lines that start with Score,
+    Affected and Action, the source link and a share line.
+    """
+    # shortcut: reads the page's HTML with regular expressions, so a change in
+    # Telegram's page layout stops the bot (no posts found, the run fails);
+    # upgrade to the Telegram Bot API or the slower RSS feed if that happens.
+    page = page_bytes.decode("utf-8", "replace")
+    starts = [(match.start(), match.group(1)) for match in POST.finditer(page)]
     alerts = []
-    for item in root.findall("./channel/item"):
-        raw_title = clean(item.findtext("title") or "")
-        link = (item.findtext("link") or "").strip()
-        guid = (item.findtext("guid") or "").strip() or link or raw_title
-        if not raw_title or not guid:
+    for index, (start, number) in enumerate(starts):
+        end = starts[index + 1][0] if index + 1 < len(starts) else len(page)
+        block = page[start:end]
+        text = POST_TEXT.search(block)
+        when = POST_TIME.findall(block)
+        if not text:
             continue
-
-        score = None
-        in_title = re.search(r"\(\s*Score\s+(\d+)\s*/\s*10\s*\)\s*$", raw_title)
-        if in_title:
-            score = int(in_title.group(1))
-            raw_title = raw_title[: in_title.start()].strip()
-
-        description = item.findtext("description") or ""
-        paragraphs = [clean(p) for p in re.findall(r"<p>(.*?)</p>", description, flags=re.S)]
-        if not paragraphs:
-            paragraphs = [clean(description)]
-
-        summary = []
-        for para in paragraphs:
+        lines = re.split(r"<br\s*/?>", text.group(1))
+        title = clean(lines[0])
+        score, link, summary = None, "", []
+        for line in lines[1:]:
+            para = clean(line)
             low = para.lower()
-            if not para:
-                continue
             if low.startswith("score:"):
                 in_line = re.search(r"(\d+)\s*/\s*10", para)
                 if in_line:
                     score = int(in_line.group(1))
-            elif low.startswith(("affected:", "action:")):
-                continue   # the post does not use these lines
-            elif low.startswith("http") or "share the channel" in low or low.startswith("untrusted data"):
-                continue   # source link, share line and reader notice
-            else:
-                summary.append(para)
-
-        alerts.append(Alert(
-            guid=guid,
-            title=sanitize(raw_title),
-            score=score if score is not None and 1 <= score <= 10 else None,
-            summary=sanitize(" ".join(summary)),
-            link=link if link.startswith("https://") else "",
-            published=(item.findtext("pubDate") or "").strip(),
-        ))
-    alerts.reverse()   # the feed lists the newest alert first
+            elif low.startswith("http"):
+                href = HREF.search(line)   # an https link only
+                link = link or (html.unescape(href.group(1)) if href else "")
+            elif para and not low.startswith(("affected:", "action:")) and "share the channel" not in low:
+                summary.append(para)   # the post does not use the other lines
+        if title:
+            alerts.append(Alert(
+                guid="telegram:" + number,
+                title=sanitize(title),
+                score=score if score is not None and 1 <= score <= 10 else None,
+                summary=sanitize(" ".join(summary)),
+                link=link,
+                published=when[-1] if when else "",
+            ))
     return alerts
 
 
@@ -257,7 +261,7 @@ def build_post(alert):
 
         <source link>
 
-    The description is the summary paragraph of the feed item. The bot does
+    The description is the summary paragraph of the alert. The bot does
     not rewrite it. The post is longer than 280 characters, so the X account
     needs X Premium. If the post is longer than POST_CHARS, the description
     is cut at a word.
@@ -327,7 +331,7 @@ def load_state(path):
 
 
 def save_state(path, state):
-    if len(state["alerts"]) > 1000:   # keep the file small; the feed holds 50 alerts
+    if len(state["alerts"]) > 1000:   # keep the file small; the page holds 20 posts
         for guid in list(state["alerts"])[:-1000]:
             del state["alerts"][guid]
     temp = path.with_suffix(".tmp")
@@ -349,7 +353,7 @@ def main():
     args = parser.parse_args()
 
     load_env_file(HERE / ".env")
-    feed_url = setting("FEED_URL", "https://feed.mpcvault.com/feed.xml")
+    channel_url = setting("CHANNEL_URL", "https://t.me/s/infoseclive")
     api_base = setting("IFTTT_API_BASE", "https://maker.ifttt.com")
     event = setting("IFTTT_EVENT", "infosec_alert")
     max_alerts = int(setting("MAX_ALERTS_PER_RUN", "3"))
@@ -357,7 +361,9 @@ def main():
     state_path = Path(setting("STATE_FILE", str(HERE / "state.json")))
 
     key = load_key() if args.post else None
-    alerts = parse_feed(fetch_feed(feed_url))
+    alerts = parse_channel(fetch(channel_url))
+    if not alerts:
+        sys.exit("No posts found on %s. Telegram may have changed the page. Nothing is sent." % channel_url)
     state = load_state(state_path)
     known = state["alerts"]
 
@@ -366,10 +372,10 @@ def main():
         old = alerts[: len(alerts) - keep] if keep > 0 else alerts
         if args.post:
             for alert in old:
-                known[alert.guid] = {"done": True, "skipped": "in feed before first run"}
+                known[alert.guid] = {"done": True, "skipped": "on the channel before first run"}
             state["initialized"] = True
             save_state(state_path, state)
-            print("First live run: recorded %d alerts as already in the feed." % len(old))
+            print("First live run: recorded %d alerts as already on the channel." % len(old))
         else:
             alerts = alerts[len(old):]
 

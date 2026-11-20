@@ -5,7 +5,7 @@ alert to X, on [@infoseclivebot](https://x.com/infoseclivebot).
 
 ![How the bot works](docs/how-it-works.svg)
 
-GitHub Actions runs `bot.py` every 5 minutes. The script reads the RSS feed,
+GitHub Actions runs `bot.py` every 5 minutes. The script reads the Infosec Live Telegram channel,
 skips the alerts that it has already sent, and sends each new alert to an
 IFTTT Applet. The Applet posts it to X.
 
