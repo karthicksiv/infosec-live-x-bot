@@ -76,6 +76,11 @@
   "telegram:106": {
    "done": true,
    "skipped": "on the channel before the bot read Telegram"
+  },
+  "telegram:107": {
+   "done": true,
+   "title": "Cisco Expressway CVE-2026-76466 root RCE exploited in the wild",
+   "at": "2026-11-20T12:08:54Z"
   }
  }
 }
