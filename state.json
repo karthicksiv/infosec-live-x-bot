@@ -216,6 +216,11 @@
    "done": true,
    "title": "VMware vCenter zero-day auth bypass exploited by China-nexus ARMORY CASTLE (CVE-2026-123890)",
    "at": "2026-11-20T00:31:51Z"
+  },
+  "Fluidkey stealth-address wallet security incident users drained, services offline 18:05 UTC, SEAL 911, Nov 19 2026 (Fluidkey X, CryptoWatchDesk, TokenPost, Telegram msg 105)": {
+   "done": true,
+   "title": "Fluidkey stealth-address wallet incident, users report drained accounts",
+   "at": "2026-11-20T00:32:25Z"
   }
  }
 }
