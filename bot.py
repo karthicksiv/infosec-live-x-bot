@@ -263,7 +263,11 @@ def build_post(alert):
     is cut at a word.
     """
     head = "%s: %s" % (severity_label(alert.score), alert.title.upper())
-    tail = "\n\n" + alert.link if alert.link else ""
+    # The link goes out with no "https://". IFTTT replaces a link that starts
+    # with "https://" with its own ift.tt short link. X makes a link from the
+    # address alone and shows it in the same way.
+    link = re.sub(r"^https://", "", alert.link)
+    tail = "\n\n" + link if link else ""
     body = alert.summary
     room = POST_CHARS - xlen(head + tail) - 2
     if body and xlen(body) > room:
