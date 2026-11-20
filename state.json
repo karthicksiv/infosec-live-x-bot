@@ -221,6 +221,11 @@
    "done": true,
    "title": "Fluidkey stealth-address wallet incident, users report drained accounts",
    "at": "2026-11-20T00:32:25Z"
+  },
+  "Hyperliquid XMR1 wrapped Monero deployer wallet suspected compromise 5.2M XMR1 dumped ~13.3M USDC to 7,467 ETH, attacker 0x1464dAcaCeB0d511f9964cDac5ebA50ea42220Bf, Nov 20 2026 (Lookonchain, Scam Sniffer, TokenPost, Telegram msg 106)": {
+   "done": true,
+   "title": "Hyperliquid XMR1 deployer wallet suspected compromise, ~$13.3M dumped",
+   "at": "2026-11-20T07:24:56Z"
   }
  }
 }
