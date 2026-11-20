@@ -31,7 +31,7 @@
 
   <rect class="own" x="220" y="200" width="240" height="56" rx="8"/>
   <text class="own-th" x="340" y="218" text-anchor="middle" dominant-baseline="central">bot.py</text>
-  <text class="own-ts" x="340" y="238" text-anchor="middle" dominant-baseline="central">Builds the one-line post</text>
+  <text class="own-ts" x="340" y="238" text-anchor="middle" dominant-baseline="central">Builds the post</text>
 
   <line class="arr" x1="464" y1="228" x2="486" y2="228" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
 

@@ -4,11 +4,16 @@
 Reads the Infosec Live RSS feed, builds one X post for each new alert, and
 sends the post to IFTTT. An IFTTT Applet then posts it to X.
 
-    🔴 CRITICAL 9/10: <one sentence that says what happened> (<CVE IDs>).
+    🚨 CRITICAL 9/10: <ALERT TITLE IN CAPITAL LETTERS>
 
-9 and 10 are CRITICAL, 7 and 8 are HIGH. An alert with a score below 7, or
-with no score, is not posted. The post is one line of at most 280 characters.
-It has no links, no AFFECTED line and no ACTION line.
+    <description from the feed>
+
+    <source link>
+
+9 and 10 are CRITICAL (🚨), 7 and 8 are HIGH (🟠). An alert with a score below
+7, or with no score, is not posted. The description is the summary paragraph
+of the feed item, with no AFFECTED line and no ACTION line. The post is longer
+than 280 characters, so the X account needs X Premium.
 
   python3 bot.py                      Dry run. Prints the posts. Sends nothing.
   python3 bot.py --post               Sends the new alerts to IFTTT.
@@ -43,11 +48,11 @@ USER_AGENT = "infosec-live-x-bot/1.0"
 # The bot stops trying an alert that IFTTT refused this many times.
 MAX_ATTEMPTS = 3
 
-# The longest post, as X counts it (see xlen).
-POST_CHARS = 280
+# The longest post, as X counts it (see xlen). X Premium allows more. This
+# limit keeps a broken feed item from making a very long post.
+POST_CHARS = 4000
 
 SIREN = "\U0001F6A8"
-RED = "\U0001F534"
 ORANGE = "\U0001F7E0"
 YELLOW = "\U0001F7E1"
 GREEN = "\U0001F7E2"
@@ -212,24 +217,17 @@ def parse_feed(xml_bytes):
 
 # ---------------------------------------------------------------- posts
 
-SENTENCE_END = re.compile(r"(?<=[.!?])\s+(?=[A-Z0-9\"'(\[])")
-CVE_ID = re.compile(r"CVE-\d{4}-\d{4,}", re.I)
-# A pair of parentheses that holds CVE IDs and nothing else.
-CVE_GROUP = re.compile(
-    r"\s*\(\s*CVE-\d{4}-\d{4,}(?:\s*(?:,|and)\s*CVE-\d{4}-\d{4,})*\s*\)", re.I)
-
-
 def severity_label(score):
-    """The first words of the post: a color mark, a severity word and the score.
+    """The first words of the post: a mark, a severity word and the score.
 
     9 and 10 are CRITICAL, 7 and 8 are HIGH, 4 to 6 are MEDIUM, 1 to 3 are LOW.
     The bot posts only scores of MIN_SCORE (7) or higher, so the last two
     appear only if MIN_SCORE is set lower.
     """
     if score is None:
-        return "%s ALERT" % SIREN
+        return "ALERT"
     if score >= 9:
-        mark, word = RED, "CRITICAL"
+        mark, word = SIREN, "CRITICAL"
     elif score >= 7:
         mark, word = ORANGE, "HIGH"
     elif score >= 4:
@@ -237,31 +235,6 @@ def severity_label(score):
     else:
         mark, word = GREEN, "LOW"
     return "%s %s %d/10" % (mark, word, score)
-
-
-def cve_ids(text):
-    """The CVE IDs in the text, in order, each one time."""
-    ids = []
-    for found in CVE_ID.findall(text):
-        if found.upper() not in ids:
-            ids.append(found.upper())
-    return ids
-
-
-WORD = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.+/-]*")
-
-
-def names_in(text):
-    """The words of the text that are names: a letter, with a capital letter or a digit.
-
-    Examples: NGINX, Chrome, iOS, HTTP/2, worse_query2. CVE IDs do not count.
-    """
-    names = set()
-    for word in WORD.findall(CVE_ID.sub(" ", text)):
-        word = word.strip("_.+/-")
-        if len(word) >= 2 and re.search(r"[A-Za-z]", word) and re.search(r"[A-Z0-9]", word):
-            names.add(word.lower())
-    return names
 
 
 def shorten(text, room):
@@ -276,46 +249,26 @@ def shorten(text, room):
 
 
 def build_post(alert):
-    """One line: the severity label, one sentence that says what happened, the CVE IDs.
+    """The post: the headline in capital letters, the description, the source link.
 
-        🔴 CRITICAL 9/10: <sentence> (CVE-2026-0001, CVE-2026-0002).
+        🚨 CRITICAL 9/10: <ALERT TITLE IN CAPITAL LETTERS>
 
-    The sentence is the first sentence of the alert summary. If the post is
-    then longer than POST_CHARS, the sentence is cut at a semicolon, where a
-    complete clause ends. If it is still too long, the sentence is the alert
-    title. The sentence is also the title when the summary sentence has none
-    of the names in the title, because then it does not say what is affected.
-    The bot copies text from the feed. It does not write text of its own.
+        <description>
 
-    The CVE IDs are the IDs in the alert title. A group such as (CVE-1, CVE-2)
-    moves to the end of the post. An ID that is part of the sentence stays in
-    the sentence and is not repeated.
+        <source link>
+
+    The description is the summary paragraph of the feed item. The bot does
+    not rewrite it. The post is longer than 280 characters, so the X account
+    needs X Premium. If the post is longer than POST_CHARS, the description
+    is cut at a word.
     """
-    label = severity_label(alert.score) + ": "
-    ids = cve_ids(alert.title)
-
-    first = SENTENCE_END.split(alert.summary)[0] if alert.summary else ""
-    choices = [first]
-    while ";" in choices[-1]:
-        choices.append(choices[-1].rsplit(";", 1)[0])
-    # Fewer than 5 words is not a sentence. It is a wrong split, as in "F5 Inc."
-    choices = [text for text in choices if len(text.split()) >= 5]
-    # The sentence must name what the title names, for example the product.
-    names = names_in(alert.title)
-    choices = [text for text in choices if not names or names & names_in(text)]
-    choices.append(alert.title)
-
-    for text in choices:
-        text = CVE_GROUP.sub("", text).strip().rstrip(".!?;:,").strip()
-        in_text = cve_ids(text)
-        missing = [cve for cve in ids if cve not in in_text]
-        tail = " (%s)." % ", ".join(missing) if missing else "."
-        if text and xlen(label + text + tail) <= POST_CHARS:
-            return label + text + tail
-
-    # The title is too long. `text` and `tail` are those of the title.
-    cut = shorten(text, POST_CHARS - xlen(label + tail))
-    return label + cut + (tail if missing else "")
+    head = "%s: %s" % (severity_label(alert.score), alert.title.upper())
+    tail = "\n\n" + alert.link if alert.link else ""
+    body = alert.summary
+    room = POST_CHARS - xlen(head + tail) - 2
+    if body and xlen(body) > room:
+        body = shorten(body, room)
+    return head + ("\n\n" + body if body else "") + tail
 
 
 # ---------------------------------------------------------------- IFTTT

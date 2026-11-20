@@ -7,34 +7,33 @@ An IFTTT Applet posts it to X. The bot does not use the X API.
 ## What it posts
 
 ```text
-🔴 CRITICAL 9/10: <one sentence that says what happened> (<CVE IDs>).
+🚨 CRITICAL 9/10: <ALERT TITLE IN CAPITAL LETTERS>
+
+<description>
+
+<source link>
 ```
 
 Example:
 
 ```text
-🔴 CRITICAL 9/10: Two memory-safety bugs in NGINX HTTP/2 handling (a connection use-after-free and a send_window integer underflow) allow unauthenticated remote code execution (CVE-2026-123633, CVE-2026-123007).
+🟠 HIGH 8/10: HYPERLIQUID XMR1 DEPLOYER WALLET SUSPECTED COMPROMISE, ~$13.3M DUMPED
+
+The XMR1 (wrapped Monero) deployer wallet on Hyperliquid sent 5.2M XMR1 to a fresh address (0x1464dAcaCeB0d511f9964cDac5ebA50ea42220Bf), which sold it into the order book for ~13.3M USDC, crashing XMR1 from ~$494 to ~$1 in about 35 minutes, then bought ~7,467 ETH and bridged most of it to Ethereum. Flagged by Scam Sniffer and Lookonchain; no official issuer statement yet.
+
+https://www.lookonchain.com/feeds/83263
 ```
 
-- 9 and 10 are CRITICAL, 7 and 8 are HIGH. An alert with a score below 7, or
-  with no score, is not posted. To change the lowest score, add the repository
-  variable `MIN_SCORE`.
-- The post is one line of at most 280 characters. The X account does not need
-  X Premium.
-- The post has no links, no AFFECTED line and no ACTION line. The bot writes
-  domains as `example[.]com`.
-
-The bot copies the sentence from the feed. It does not write text of its own.
-
-1. The sentence is the first sentence of the alert summary.
-2. If the post is then longer than 280 characters, the sentence is cut at a
-   semicolon, where a complete clause ends.
-3. If the post is still too long, the sentence is the alert title.
-4. The sentence is also the alert title when the summary sentence has none of
-   the names in the title (for example the product name). Such a sentence
-   does not say what is affected.
-
-The CVE IDs come from the alert title and go at the end of the post.
+- 9 and 10 are CRITICAL (🚨), 7 and 8 are HIGH (🟠). An alert with a score
+  below 7, or with no score, is not posted. To change the lowest score, add
+  the repository variable `MIN_SCORE`.
+- The headline is the alert title in capital letters.
+- The description is the summary paragraph of the feed item. The bot does not
+  rewrite it. The post has no AFFECTED line and no ACTION line.
+- The link is the source link of the feed item. In the headline and the
+  description, the bot writes domains as `example[.]com`, so that X does not
+  make them links.
+- The post is longer than 280 characters, so the X account needs X Premium.
 
 ## Set up IFTTT (free plan)
 

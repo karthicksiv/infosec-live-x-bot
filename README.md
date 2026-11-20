@@ -1,7 +1,7 @@
 # Infosec Live X bot
 
 This bot posts each new [Infosec Live](https://t.me/s/infoseclive) security
-alert to X as one line, on [@infoseclivebot](https://x.com/infoseclivebot).
+alert to X, on [@infoseclivebot](https://x.com/infoseclivebot).
 
 ![How the bot works](docs/how-it-works.svg)
 
@@ -12,10 +12,15 @@ IFTTT Applet. The Applet posts it to X.
 A post looks like this:
 
 ```text
-🔴 CRITICAL 9/10: Two memory-safety bugs in NGINX HTTP/2 handling (a connection use-after-free and a send_window integer underflow) allow unauthenticated remote code execution (CVE-2026-123633, CVE-2026-123007).
+🟠 HIGH 8/10: HYPERLIQUID XMR1 DEPLOYER WALLET SUSPECTED COMPROMISE, ~$13.3M DUMPED
+
+The XMR1 (wrapped Monero) deployer wallet on Hyperliquid sent 5.2M XMR1 to a fresh address (0x1464dAcaCeB0d511f9964cDac5ebA50ea42220Bf), which sold it into the order book for ~13.3M USDC, crashing XMR1 from ~$494 to ~$1 in about 35 minutes, then bought ~7,467 ETH and bridged most of it to Ethereum. Flagged by Scam Sniffer and Lookonchain; no official issuer statement yet.
+
+https://www.lookonchain.com/feeds/83263
 ```
 
-The bot copies the sentence from the alert. It posts alerts with a score of 7
-or higher: 9 and 10 are CRITICAL, 7 and 8 are HIGH.
+The headline, the description and the link come from the alert. The bot posts
+alerts with a score of 7 or higher: 9 and 10 are CRITICAL (🚨), 7 and 8 are
+HIGH (🟠).
 
 To set up the bot or run it yourself, see [SETUP.md](SETUP.md).
