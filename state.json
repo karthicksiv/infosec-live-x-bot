@@ -201,6 +201,21 @@
    "done": true,
    "title": "LUKSO email recovery backend hijacked, attacker key added to ~300 Universal Profiles",
    "at": "2026-11-19T00:36:46Z"
+  },
+  "CVE-2026-40217": {
+   "done": true,
+   "title": "LiteLLM proxy guardrail sandbox escape RCE (CVE-2026-40217) now actively exploited",
+   "at": "2026-11-20T00:31:49Z"
+  },
+  "Gonka Ethereum bridge + epoch BLS group key rotation exploit, stablecoin reserves drained and unbacked WGNK minted, ~$1.05M (Blockaid), Nov 18 2026 (Crypto Times, Telegram msg 102)": {
+   "done": true,
+   "title": "Gonka Ethereum bridge drained after attacker rotated its BLS threshold group key",
+   "at": "2026-11-20T00:31:50Z"
+  },
+  "CVE-2026-123890": {
+   "done": true,
+   "title": "VMware vCenter zero-day auth bypass exploited by China-nexus ARMORY CASTLE (CVE-2026-123890)",
+   "at": "2026-11-20T00:31:51Z"
   }
  }
 }
