@@ -2,9 +2,11 @@ name: Post alerts to X
 
 on:
   schedule:
-    # Every 5 minutes. This is the shortest schedule that GitHub allows.
+    # Every 5 minutes, at minutes 3, 8, 13 and so on. This is the shortest
+    # schedule that GitHub allows. No run starts on the hour, because GitHub
+    # delays or drops scheduled runs most often then.
     # Each scheduled run checks the feed 3 times, 2 minutes apart.
-    - cron: "*/5 * * * *"
+    - cron: "3/5 * * * *"
   workflow_dispatch:
     inputs:
       mode:
