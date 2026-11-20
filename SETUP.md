@@ -21,7 +21,7 @@ Example:
 
 The XMR1 (wrapped Monero) deployer wallet on Hyperliquid sent 5.2M XMR1 to a fresh address (0x1464dAcaCeB0d511f9964cDac5ebA50ea42220Bf), which sold it into the order book for ~13.3M USDC, crashing XMR1 from ~$494 to ~$1 in about 35 minutes, then bought ~7,467 ETH and bridged most of it to Ethereum. Flagged by Scam Sniffer and Lookonchain; no official issuer statement yet.
 
-https://www.lookonchain.com/feeds/83263
+www.lookonchain.com/feeds/83263
 ```
 
 - 9 and 10 are CRITICAL (🚨), 7 and 8 are HIGH (🟠). An alert with a score
@@ -30,9 +30,12 @@ https://www.lookonchain.com/feeds/83263
 - The headline is the alert title in capital letters.
 - The description is the summary paragraph of the feed item. The bot does not
   rewrite it. The post has no AFFECTED line and no ACTION line.
-- The link is the source link of the feed item. In the headline and the
-  description, the bot writes domains as `example[.]com`, so that X does not
-  make them links.
+- The link is the source link of the feed item, with no `https://` in front.
+  IFTTT replaces a link that starts with `https://` with its own `ift.tt`
+  short link. X makes a link from the address alone and shows a preview of
+  the page.
+- In the headline and the description, the bot writes domains as
+  `example[.]com`, so that X does not make them links.
 - The post is longer than 280 characters, so the X account needs X Premium.
 
 ## Set up IFTTT (free plan)
