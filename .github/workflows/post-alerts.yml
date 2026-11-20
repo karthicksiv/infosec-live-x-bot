@@ -6,15 +6,19 @@ on:
     # schedule that GitHub allows. No run starts on the hour, because GitHub
     # delays or drops scheduled runs most often then.
     # Each scheduled run checks the feed 3 times, 2 minutes apart.
+    # GitHub did not start these scheduled runs for this repo (November 2026).
+    # For that reason each run starts the next run (see "Start the next run").
+    # The schedule stays as a second way to start the chain.
     - cron: "3/5 * * * *"
   workflow_dispatch:
     inputs:
       mode:
-        description: "dry-run prints the posts. post sends them to IFTTT, which posts them to X."
+        description: "dry-run prints the posts. post sends them once. watch does the same as a scheduled run and then starts the next run."
         type: choice
         options:
           - dry-run
           - post
+          - watch
         default: dry-run
       backfill:
         description: "First live run only: also post this number of the newest alerts."
@@ -27,6 +31,7 @@ on:
 
 permissions:
   contents: write   # the job saves state.json to the repo
+  actions: write    # the job starts the next run
 
 # One run at a time, so that two runs never post the same alert.
 concurrency:
@@ -35,9 +40,10 @@ concurrency:
 
 jobs:
   post:
-    # A scheduled run does nothing until the repository variable
-    # POSTING_ENABLED is set to "true". A manual run always works.
-    if: github.event_name != 'schedule' || vars.POSTING_ENABLED == 'true'
+    # A scheduled run or a watch run does nothing until the repository
+    # variable POSTING_ENABLED is set to "true". A manual dry-run or post run
+    # always works.
+    if: (github.event_name == 'workflow_dispatch' && inputs.mode != 'watch') || vars.POSTING_ENABLED == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
@@ -65,7 +71,7 @@ jobs:
             fi
           }
           rc=0
-          if [ "$EVENT" = "schedule" ]; then
+          if [ "$EVENT" = "schedule" ] || [ "$MODE" = "watch" ]; then
             for check in 1 2 3; do
               python3 bot.py --post || rc=$?
               save_state
@@ -86,3 +92,20 @@ jobs:
             save_state
           fi
           exit $rc
+
+      - name: Start the next run
+        # A scheduled run or a watch run starts the next watch run, also when
+        # a check failed. To stop the chain, cancel the run that is in
+        # progress, or delete the variable POSTING_ENABLED.
+        if: ${{ !cancelled() && (github.event_name == 'schedule' || inputs.mode == 'watch') && vars.POSTING_ENABLED == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for try in 1 2 3; do
+            if gh workflow run post-alerts.yml --repo "$GITHUB_REPOSITORY" --ref main -f mode=watch; then
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "Could not start the next run. Start one by hand with mode watch."
+          exit 1

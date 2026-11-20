@@ -54,10 +54,20 @@ The workflow is `.github/workflows/post-alerts.yml`.
    mode `dry-run`. It prints the posts for the three newest alerts.
 3. Start it again with mode `post` and backfill `1`. It sends the newest alert.
    Check the post on X.
-4. To start the schedule, add the repository variable `POSTING_ENABLED` with the
-   value `true` (Settings > Secrets and variables > Actions > Variables).
-   A scheduled run starts every 5 minutes and checks the feed 3 times, 2 minutes
-   apart. GitHub can start a run late. To stop the schedule, delete the variable.
+4. To start the bot, add the repository variable `POSTING_ENABLED` with the
+   value `true` (Settings > Secrets and variables > Actions > Variables). Then
+   start the workflow by hand with mode `watch`.
+   A watch run checks the feed 3 times, 2 minutes apart, and then starts the
+   next watch run. Thus a new run starts about every 5 minutes.
+5. To stop the bot, delete the variable `POSTING_ENABLED`. The next run then
+   does nothing and starts no other run. To stop it at once, also cancel the
+   run that is in progress.
+
+The workflow also has a schedule (every 5 minutes). In November 2026 GitHub did
+not start these scheduled runs for this repo. For that reason each run starts
+the next run. If a run stops before it starts the next run, the bot stops:
+the Actions tab then shows no new run. Start the workflow with mode `watch`
+again.
 
 To send one alert again, run the workflow with mode `post` and a part of the
 alert title in `resend`, for example `LUKSO`. The run sends only the alerts
