@@ -91,6 +91,11 @@
    "done": true,
    "title": "GnuPG GPGME critical double-free via crafted OpenPGP key (CVE-2026-129975)",
    "at": "2026-11-21T11:27:44Z"
+  },
+  "telegram:110": {
+   "done": true,
+   "title": "Cyber (CYBER) LayerZero bridge exploited for about $1M",
+   "at": "2026-11-21T19:23:59Z"
   }
  }
 }
