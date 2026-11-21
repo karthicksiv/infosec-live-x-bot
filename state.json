@@ -96,6 +96,11 @@
    "done": true,
    "title": "Cyber (CYBER) LayerZero bridge exploited for about $1M",
    "at": "2026-11-21T19:23:59Z"
+  },
+  "telegram:111": {
+   "done": true,
+   "title": "Ghostscript \"Upload2Shell\" CVE-2026-125396 lets uploaded files run commands",
+   "at": "2026-11-21T20:22:43Z"
   }
  }
 }
