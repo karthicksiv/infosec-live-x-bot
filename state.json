@@ -81,6 +81,11 @@
    "done": true,
    "title": "Cisco Expressway CVE-2026-76466 root RCE exploited in the wild",
    "at": "2026-11-20T12:08:54Z"
+  },
+  "telegram:108": {
+   "done": true,
+   "title": "Chainflip Ethereum vault drained for ~$4.86M with a valid TSS aggregate-key signature",
+   "at": "2026-11-21T09:23:54Z"
   }
  }
 }
