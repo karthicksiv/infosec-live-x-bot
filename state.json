@@ -86,6 +86,11 @@
    "done": true,
    "title": "Chainflip Ethereum vault drained for ~$4.86M with a valid TSS aggregate-key signature",
    "at": "2026-11-21T09:23:54Z"
+  },
+  "telegram:109": {
+   "done": true,
+   "title": "GnuPG GPGME critical double-free via crafted OpenPGP key (CVE-2026-129975)",
+   "at": "2026-11-21T11:27:44Z"
   }
  }
 }
