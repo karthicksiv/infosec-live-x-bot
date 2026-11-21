@@ -101,6 +101,11 @@
    "done": true,
    "title": "Ghostscript \"Upload2Shell\" CVE-2026-125396 lets uploaded files run commands",
    "at": "2026-11-21T20:22:43Z"
+  },
+  "telegram:112": {
+   "done": true,
+   "title": "Rackspace Spot breach exposed customer Kubernetes Secrets",
+   "at": "2026-11-21T23:21:17Z"
   }
  }
 }
