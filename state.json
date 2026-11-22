@@ -111,6 +111,11 @@
    "done": true,
    "title": "GL.iNet GoodCloud flaw exploited to plant malware on routers and KVMs",
    "at": "2026-11-22T11:21:24Z"
+  },
+  "telegram:114": {
+   "done": true,
+   "title": "Fusionist ACE bridge exploit on BNB Chain, unbacked mint drains ~$1M",
+   "at": "2026-11-22T19:25:13Z"
   }
  }
 }
