@@ -116,6 +116,11 @@
    "done": true,
    "title": "Fusionist ACE bridge exploit on BNB Chain, unbacked mint drains ~$1M",
    "at": "2026-11-22T19:25:13Z"
+  },
+  "telegram:115": {
+   "done": true,
+   "title": "Idunno.AntiCsrf ASP[.]NET flaw CVE-2026-131914 exploited for unauthenticated RCE",
+   "at": "2026-11-23T10:28:39Z"
   }
  }
 }
