@@ -141,6 +141,11 @@
    "done": true,
    "title": "Bullpen confirms unauthorized transfers from early-beta accounts with imported keys",
    "at": "2026-11-24T17:27:08Z"
+  },
+  "telegram:120": {
+   "done": true,
+   "title": "Drupal core installer RCE now exploited in the wild (CVE-2026-132165)",
+   "at": "2026-11-24T18:24:13Z"
   }
  }
 }
