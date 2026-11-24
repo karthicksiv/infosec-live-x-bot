@@ -126,6 +126,11 @@
    "done": true,
    "title": "Azure API Management Classic flaw exploited to steal stored API secrets",
    "at": "2026-11-23T20:23:12Z"
+  },
+  "telegram:117": {
+   "done": true,
+   "title": "Chrome 158 critical sandbox escape fixed (CVE-2026-134401)",
+   "at": "2026-11-24T00:25:07Z"
   }
  }
 }
