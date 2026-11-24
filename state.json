@@ -131,6 +131,11 @@
    "done": true,
    "title": "Chrome 158 critical sandbox escape fixed (CVE-2026-134401)",
    "at": "2026-11-24T00:25:07Z"
+  },
+  "telegram:118": {
+   "done": true,
+   "title": "hex[.]pm package registry breached via unauthenticated RCE (CVE-2026-129514)",
+   "at": "2026-11-24T15:17:51Z"
   }
  }
 }
