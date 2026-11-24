@@ -136,6 +136,11 @@
    "done": true,
    "title": "hex[.]pm package registry breached via unauthenticated RCE (CVE-2026-129514)",
    "at": "2026-11-24T15:17:51Z"
+  },
+  "telegram:119": {
+   "done": true,
+   "title": "Bullpen confirms unauthorized transfers from early-beta accounts with imported keys",
+   "at": "2026-11-24T17:27:08Z"
   }
  }
 }
