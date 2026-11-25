@@ -166,6 +166,11 @@
    "done": true,
    "title": "Mitel MiCollab AWV unauthenticated RCE chain exploited in the wild",
    "at": "2026-11-25T20:17:08Z"
+  },
+  "telegram:125": {
+   "done": true,
+   "title": "Drupal core installer takeover exploited again despite SA-CORE-2026-017 patch",
+   "at": "2026-11-25T21:27:01Z"
   }
  }
 }
