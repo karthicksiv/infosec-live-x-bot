@@ -151,6 +151,11 @@
    "done": true,
    "title": "GeoServer pre-auth flaws exploited one day after patch (CVE-2026-120705, CVE-2026-129243)",
    "at": "2026-11-25T13:21:34Z"
+  },
+  "telegram:122": {
+   "done": true,
+   "title": "Juniper Session Smart Conductor root RCE exploited, added to CISA KEV (CVE-2026-103406)",
+   "at": "2026-11-25T15:20:06Z"
   }
  }
 }
