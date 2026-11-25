@@ -156,6 +156,11 @@
    "done": true,
    "title": "Juniper Session Smart Conductor root RCE exploited, added to CISA KEV (CVE-2026-103406)",
    "at": "2026-11-25T15:20:06Z"
+  },
+  "telegram:123": {
+   "done": true,
+   "title": "1Password backend breach via hijacked employee GitHub account",
+   "at": "2026-11-25T19:22:51Z"
   }
  }
 }
