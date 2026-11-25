@@ -161,6 +161,11 @@
    "done": true,
    "title": "1Password backend breach via hijacked employee GitHub account",
    "at": "2026-11-25T19:22:51Z"
+  },
+  "telegram:124": {
+   "done": true,
+   "title": "Mitel MiCollab AWV unauthenticated RCE chain exploited in the wild",
+   "at": "2026-11-25T20:17:08Z"
   }
  }
 }
