@@ -146,6 +146,11 @@
    "done": true,
    "title": "Drupal core installer RCE now exploited in the wild (CVE-2026-132165)",
    "at": "2026-11-24T18:24:13Z"
+  },
+  "telegram:121": {
+   "done": true,
+   "title": "GeoServer pre-auth flaws exploited one day after patch (CVE-2026-120705, CVE-2026-129243)",
+   "at": "2026-11-25T13:21:34Z"
   }
  }
 }
