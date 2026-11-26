@@ -171,6 +171,11 @@
    "done": true,
    "title": "Drupal core installer takeover exploited again despite SA-CORE-2026-017 patch",
    "at": "2026-11-25T21:27:01Z"
+  },
+  "telegram:126": {
+   "done": true,
+   "title": "VirtueMart for Joomla unauthenticated RCE exploited in the wild (CVE-2026-133335)",
+   "at": "2026-11-26T02:19:33Z"
   }
  }
 }
