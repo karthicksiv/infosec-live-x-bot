@@ -176,6 +176,11 @@
    "done": true,
    "title": "VirtueMart for Joomla unauthenticated RCE exploited in the wild (CVE-2026-133335)",
    "at": "2026-11-26T02:19:33Z"
+  },
+  "telegram:127": {
+   "done": true,
+   "title": "DPRK PolinRider worm poisons 7,600+ GitHub repos, Ethereum-hidden C2",
+   "at": "2026-11-26T15:19:31Z"
   }
  }
 }
