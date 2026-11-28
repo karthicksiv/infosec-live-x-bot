@@ -186,6 +186,11 @@
    "done": true,
    "title": "SAP confirms GitHub development platform breach (\"Project Granite\")",
    "at": "2026-11-27T10:22:59Z"
+  },
+  "telegram:129": {
+   "done": true,
+   "title": "Tonkeeper (Keeper) for macOS exposed seed phrases to any local app",
+   "at": "2026-11-28T14:16:52Z"
   }
  }
 }
